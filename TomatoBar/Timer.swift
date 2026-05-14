@@ -9,14 +9,18 @@ class TBTimer: ObservableObject {
     @AppStorage("shortRestIntervalLength") var shortRestIntervalLength = 5
     @AppStorage("longRestIntervalLength") var longRestIntervalLength = 15
     @AppStorage("workIntervalsInSet") var workIntervalsInSet = 4
+    
+    // when enabled, toggle system focus mode when timer state changed
+    @AppStorage("enableFocusAutomation") var enableFocusAutomation = false
+
     // This preference is "hidden"
     @AppStorage("overrunTimeLimit") var overrunTimeLimit = -60.0
-
+    
     private var stateMachine = TBStateMachine(state: .idle)
     public let player = TBPlayer()
     private var consecutiveWorkIntervals: Int = 0
     private var notificationCenter = TBNotificationCenter()
-    private var finishTime: Date!
+    private var finishTime: Date?
     private var timerFormatter = DateComponentsFormatter()
     @Published var timeLeftString: String = ""
     @Published var timer: DispatchSourceTimer?
@@ -120,7 +124,13 @@ class TBTimer: ObservableObject {
     }
 
     func updateTimeLeft() {
-        timeLeftString = timerFormatter.string(from: Date(), to: finishTime)!
+        guard let finishTime else {
+            timeLeftString = ""
+            TBStatusItem.shared.setTitle(title: nil)
+            return
+        }
+
+        timeLeftString = timerFormatter.string(from: Date(), to: finishTime) ?? ""
         if timer != nil, showTimerInMenuBar {
             TBStatusItem.shared.setTitle(title: timeLeftString)
         } else {
@@ -148,6 +158,10 @@ class TBTimer: ObservableObject {
         /* Cannot publish updates from background thread */
         DispatchQueue.main.async { [self] in
             updateTimeLeft()
+            guard let finishTime else {
+                return
+            }
+
             let timeLeft = finishTime.timeIntervalSince(Date())
             if timeLeft <= 0 {
                 /*
@@ -164,6 +178,11 @@ class TBTimer: ObservableObject {
     }
 
     private func onTimerCancel() {
+        do {
+            try FocusManager.shared.focusOn()
+        } catch {
+            logger.logError("Failed to disable focus on timer cancel: \(error.localizedDescription)")
+        }
         DispatchQueue.main.async { [self] in
             updateTimeLeft()
         }
@@ -176,6 +195,13 @@ class TBTimer: ObservableObject {
     }
 
     private func onWorkStart(context _: TBStateMachine.Context) {
+        if (self.enableFocusAutomation) {
+            do {
+                try FocusManager.shared.focusOff()
+            } catch {
+                logger.logError("Failed to enable focus on work start: \(error.localizedDescription)")
+            }
+        }
         TBStatusItem.shared.setIcon(name: .work)
         player.playWindup()
         player.startTicking()
@@ -183,11 +209,25 @@ class TBTimer: ObservableObject {
     }
 
     private func onWorkFinish(context _: TBStateMachine.Context) {
+        if (self.enableFocusAutomation) {
+            do {
+                try FocusManager.shared.focusOff()
+            } catch {
+                logger.logError("Failed to disable focus on work finish: \(error.localizedDescription)")
+            }
+        }
         consecutiveWorkIntervals += 1
         player.playDing()
     }
 
     private func onWorkEnd(context _: TBStateMachine.Context) {
+        if (self.enableFocusAutomation) {
+            do {
+                try FocusManager.shared.focusOff()
+            } catch {
+                logger.logError("Failed to disable focus on work end: \(error.localizedDescription)")
+            }
+        }
         player.stopTicking()
     }
 
@@ -207,6 +247,7 @@ class TBTimer: ObservableObject {
             category: .restStarted
         )
         TBStatusItem.shared.setIcon(name: imgName)
+        
         startTimer(seconds: length * 60)
     }
 

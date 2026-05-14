@@ -26,6 +26,17 @@ class TBLogEventTransition: TBLogEvent {
     }
 }
 
+class TBLogEventError: TBLogEvent {
+    internal let type = "error"
+    internal let timestamp: Date = Date()
+
+    private let message: String
+
+    init(message: String) {
+        self.message = message
+    }
+}
+
 private let logFileName = "TomatoBar.log"
 private let lineEnd = "\n".data(using: .utf8)!
 
@@ -73,5 +84,9 @@ class TBLogger {
         } catch {
             print("cannot write to log file: \(error)")
         }
+    }
+
+    func logError(_ message: String) {
+        append(event: TBLogEventError(message: message))
     }
 }

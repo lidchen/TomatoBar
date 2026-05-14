@@ -83,9 +83,36 @@ private struct SettingsView: View {
                                        comment: "Launch at login label"))
                     .frame(maxWidth: .infinity, alignment: .leading)
             }.toggleStyle(.switch)
+            FocusToggle(isFocused: $timer.enableFocusAutomation)
             Spacer().frame(minHeight: 0)
         }
         .padding(4)
+    }
+}
+
+private struct FocusToggle: View {
+    @Binding var isFocused: Bool
+    
+    var body: some View {
+        Toggle(isOn: $isFocused) {
+            Text(NSLocalizedString("SettingsView.enableFocusAutomation.label",
+                                   comment: "Toggle focus on & off automatically when timer state changed"))
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }.toggleStyle(.switch)
+            .onChange(of: isFocused) { newValue in
+                // if on, check if shortcut exists
+                // if not exists, install shortcut
+                if newValue {
+                    DispatchQueue.main.async {
+                        do {
+                            if (!FocusManager.shared.checkFocusOnShortcuts()) { try FocusManager.shared.installFocusOnShortcuts() }
+                            if (!FocusManager.shared.checkFocusOffShortcuts()) { try FocusManager.shared.installFocusOffShortcuts() }
+                        } catch {
+                            logger.logError("Failed to install focus shortcuts: \(error.localizedDescription)")
+                        }
+                    }
+                }
+            }
     }
 }
 
