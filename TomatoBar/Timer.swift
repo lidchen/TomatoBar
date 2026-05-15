@@ -179,7 +179,7 @@ class TBTimer: ObservableObject {
 
     private func onTimerCancel() {
         do {
-            try FocusManager.shared.focusOn()
+            try FocusManager.shared.focusOff()
         } catch {
             logger.logError("Failed to disable focus on timer cancel: \(error.localizedDescription)")
         }
@@ -197,7 +197,7 @@ class TBTimer: ObservableObject {
     private func onWorkStart(context _: TBStateMachine.Context) {
         if (self.enableFocusAutomation) {
             do {
-                try FocusManager.shared.focusOff()
+                try FocusManager.shared.focusOn()
             } catch {
                 logger.logError("Failed to enable focus on work start: \(error.localizedDescription)")
             }
